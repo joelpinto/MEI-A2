@@ -51,6 +51,15 @@ def create_shipping(directories):
     os.system("rm -r source-temp")
 
 
+def read_shipping(directories):
+    # tar -zxvf tar-archive-name.tar.gz  TO EXTRACT
+    # tar -zcvf tar-archive-name.tar.gz source-folder-name  TO COMPRESS
+    os.system("tar -zxvf source-temp.tar.gz")
+    for i in directories.keys():
+        os.system("cp -a source-temp/" + directories[i]['_name'] + "/patches/ source/" + directories[i]['_name'] + "/")
+    os.system("rm -r source-temp/")
+    os.system("rm -r source-temp.tar.gz")
+
 def main():
     if work_remote:
         print("Successful connected!")
@@ -66,6 +75,14 @@ def main():
     remote_command("rm source-temp.tar.gz")
     for i in directories.keys():
         remote_command("swfi source-temp/" + directories[i]['_name'] + "/" + directories[i]['_name'] + ".c > /dev/null")
+        list = sftp.listdir("source-temp/" + directories[i]['_name'] + "/")
+        for j in list:
+            if (j != directories[i]['_name'] + ".c") and (j != directories[i]['_name'] + ".c._FORMATTED_") and (j != directories[i]['_name'] + ".origin.c") and (j != "patches"):
+                remote_command("patch -d source-temp/" + directories[i]['_name'] + "/ < source-temp/" + directories[i]['_name'] + "/" + j)
+                remote_command("cp source-temp/" + directories[i]['_name'] + "/" + directories[i]['_name'] + ".c source-temp/" + directories[i]['_name'] + "/" + "patches/")
+                remote_command("cp source-temp/" + directories[i]['_name'] + "/" + "patches/" + directories[i]['_name'] + ".c source-temp/" + directories[i]['_name'] + "/" + "patches/" + j + ".c")
+                remote_command("rm source-temp/" + directories[i]['_name'] + "/" + "patches/" + directories[i]['_name'] + ".c")
+                remote_command("patch -R -d source-temp/" + directories[i]['_name'] + "/ < source-temp/" + directories[i]['_name'] + "/" + j)
     remote_command("tar -zcvf source-temp.tar.gz source-temp")
     if work_remote:
         sftp.get(
@@ -73,7 +90,7 @@ def main():
         )
     remote_command("rm source-temp.tar.gz")
     remote_command("rm -r source-temp")
-    remote_command("ls")
+    read_shipping(directories)
 
 
 if __name__ == "__main__":
