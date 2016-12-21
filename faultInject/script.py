@@ -67,6 +67,7 @@ def read_shipping(directories):
 
 def run_tests(directories):
     statistics = {}
+    print("generating statistics...")
     for i in directories.keys():
         patches = directories[i]['patches']
         inputs = directories[i]['inputs']
@@ -76,7 +77,7 @@ def run_tests(directories):
         defect_patch_not_detected = 0
         for j in patches:
             defect = False
-            os.system("gcc source/" + i + "/patches/" + j + " -o source/" + i + "/" + i)
+            os.system("gcc -w source/" + i + "/patches/" + j + " -o source/" + i + "/" + i)
             detected = 0
             not_detected = 0
             out_tests = []
