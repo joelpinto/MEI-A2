@@ -1,7 +1,8 @@
 import pysftp
 import os
+import filecmp
 
-work_remote = True
+work_remote = False
 
 
 if work_remote:
@@ -31,8 +32,11 @@ def crawl_directory():
     for i in program_dirs:
         _path = 'source/' + i + "/"
         inputs = os.listdir("source/" + i + "/inputs/")
+        inputs.sort()
         outputs = os.listdir("source/" + i + "/outputs/")
+        outputs.sort()
         patches = os.listdir("source/" + i + "/patches/")
+        patches.sort()
         ret[i] = {'_name': i, '_path': _path, 'inputs': inputs, 'outputs': outputs, 'patches': patches}
     return ret
 
@@ -60,12 +64,53 @@ def read_shipping(directories):
     os.system("rm -r source-temp/")
     os.system("rm -r source-temp.tar.gz")
 
+
+def run_tests(directories):
+    statistics = {}
+    for i in directories.keys():
+        patches = directories[i]['patches']
+        inputs = directories[i]['inputs']
+        outputs = directories[i]['outputs']
+        statistics[i] = {'_name': i, 'patches': {}, 'defect_patch_detected': 0, 'defect_patch_not_detected': 0}
+        defect_patch_detected = 0
+        defect_patch_not_detected = 0
+        for j in patches:
+            defect = False
+            os.system("gcc source/" + i + "/patches/" + j + " -o source/" + i + "/" + i)
+            detected = 0
+            not_detected = 0
+            out_tests = []
+            for count in range(len(inputs)):
+                #print("running " + j + "...")
+                os.system("./source/" + i + "/" + i + " < source/" + i + "/inputs/" + inputs[count] + " > source/" + i + "/out.tmp")
+                if filecmp.cmp("source/" + i + "/out.tmp", "source/" + i + "/outputs/" + outputs[count]):
+                    out_tests.append([outputs[count], True])
+                    detected += 1
+                else:
+                    out_tests.append([outputs[count], False])
+                    not_detected += 1
+                    defect = True
+                os.system("rm source/" + i + "/out.tmp")
+            statistics[i]['patches'][j] = {'out_test': out_tests, 'defect': defect, 'detected': detected, 'not_detected': not_detected}
+            if defect:
+                defect_patch_detected += 1
+            else:
+                defect_patch_not_detected += 1
+            os.system("rm source/" + i + "/" + i)
+        statistics[i]['defect_patch_detected'] = defect_patch_detected
+        statistics[i]['defect_patch_not_detected'] = defect_patch_not_detected
+        print("number of patches: " + str(len(patches)))
+        print("" + i + ":\ndefect_patch_detected: " + str(defect_patch_detected) + "\ndefect_patch_not_detected: " + str(defect_patch_not_detected))
+    return statistics
+
+
 def main():
     if work_remote:
         print("Successful connected!")
 
     directories = crawl_directory()
-    create_shipping(directories)
+    if work_remote:
+        create_shipping(directories)
 
     if work_remote:
         sftp.put(
@@ -73,25 +118,30 @@ def main():
         )
     remote_command("tar -zxvf source-temp.tar.gz")
     remote_command("rm source-temp.tar.gz")
-    for i in directories.keys():
-        remote_command("swfi source-temp/" + directories[i]['_name'] + "/" + directories[i]['_name'] + ".c > /dev/null")
-        list = sftp.listdir("source-temp/" + directories[i]['_name'] + "/")
-        for j in list:
-            if (j != directories[i]['_name'] + ".c") and (j != directories[i]['_name'] + ".c._FORMATTED_") and (j != directories[i]['_name'] + ".origin.c") and (j != "patches"):
-                remote_command("patch -d source-temp/" + directories[i]['_name'] + "/ < source-temp/" + directories[i]['_name'] + "/" + j)
-                remote_command("cp source-temp/" + directories[i]['_name'] + "/" + directories[i]['_name'] + ".c source-temp/" + directories[i]['_name'] + "/" + "patches/")
-                remote_command("cp source-temp/" + directories[i]['_name'] + "/" + "patches/" + directories[i]['_name'] + ".c source-temp/" + directories[i]['_name'] + "/" + "patches/" + j + ".c")
-                remote_command("rm source-temp/" + directories[i]['_name'] + "/" + "patches/" + directories[i]['_name'] + ".c")
-                remote_command("patch -R -d source-temp/" + directories[i]['_name'] + "/ < source-temp/" + directories[i]['_name'] + "/" + j)
-    remote_command("tar -zcvf source-temp.tar.gz source-temp")
+    if work_remote:
+        for i in directories.keys():
+            print("Generating patches for " + i + "...")
+            remote_command("swfi source-temp/" + directories[i]['_name'] + "/" + directories[i]['_name'] + ".c > /dev/null")
+            list = sftp.listdir("source-temp/" + directories[i]['_name'] + "/")
+            for j in list:
+                if (j != directories[i]['_name'] + ".c") and (j != directories[i]['_name'] + ".c._FORMATTED_") and (j != directories[i]['_name'] + ".origin.c") and (j != "patches"):
+                    remote_command("patch -d source-temp/" + directories[i]['_name'] + "/ < source-temp/" + directories[i]['_name'] + "/" + j)
+                    remote_command("cp source-temp/" + directories[i]['_name'] + "/" + directories[i]['_name'] + ".c source-temp/" + directories[i]['_name'] + "/" + "patches/")
+                    remote_command("cp source-temp/" + directories[i]['_name'] + "/" + "patches/" + directories[i]['_name'] + ".c source-temp/" + directories[i]['_name'] + "/" + "patches/" + j + ".c")
+                    remote_command("rm source-temp/" + directories[i]['_name'] + "/" + "patches/" + directories[i]['_name'] + ".c")
+                    remote_command("patch -R -d source-temp/" + directories[i]['_name'] + "/ < source-temp/" + directories[i]['_name'] + "/" + j)
+        remote_command("tar -zcvf source-temp.tar.gz source-temp")
     if work_remote:
         sftp.get(
             remotepath="source-temp.tar.gz"
         )
     remote_command("rm source-temp.tar.gz")
     remote_command("rm -r source-temp")
-    read_shipping(directories)
-
+    if work_remote:
+        read_shipping(directories)
+        directories = crawl_directory()
+    else:
+        statistics = run_tests(directories)
 
 if __name__ == "__main__":
     main()
