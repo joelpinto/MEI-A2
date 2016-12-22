@@ -1,6 +1,7 @@
 import pysftp
 import os
 import filecmp
+import math
 
 work_remote = False
 
@@ -75,12 +76,20 @@ def run_tests(directories):
         statistics[i] = {'_name': i, 'patches': {}, 'defect_patch_detected': 0, 'defect_patch_not_detected': 0}
         defect_patch_detected = 0
         defect_patch_not_detected = 0
+        type_patches = {}
+        for j in patches:
+            patch_type = j.split('_')
+            patch_type = patch_type[1]
+            type_patches[patch_type] = {'not_detected': 0, 'detected': 0}
+        statistics[i]['type_patches'] = type_patches
         for j in patches:
             defect = False
             os.system("gcc -w source/" + i + "/patches/" + j + " -o source/" + i + "/" + i)
             detected = 0
             not_detected = 0
             out_tests = []
+            patch_type = j.split('_')
+            patch_type = patch_type[1]
             for count in range(len(inputs)):
                 #print("running " + j + "...")
                 os.system("./source/" + i + "/" + i + " < source/" + i + "/inputs/" + inputs[count] + " > source/" + i + "/out.tmp")
@@ -92,6 +101,8 @@ def run_tests(directories):
                     not_detected += 1
                     defect = True
                 os.system("rm source/" + i + "/out.tmp")
+            statistics[i]['type_patches'][patch_type]['detected'] += detected
+            statistics[i]['type_patches'][patch_type]['not_detected'] += not_detected
             statistics[i]['patches'][j] = {'out_test': out_tests, 'defect': defect, 'detected': detected, 'not_detected': not_detected}
             if defect:
                 defect_patch_detected += 1
@@ -101,7 +112,12 @@ def run_tests(directories):
         statistics[i]['defect_patch_detected'] = defect_patch_detected
         statistics[i]['defect_patch_not_detected'] = defect_patch_not_detected
         print("number of patches: " + str(len(patches)))
-        print("" + i + ":\ndefect_patch_detected: " + str(defect_patch_detected) + "\ndefect_patch_not_detected: " + str(defect_patch_not_detected))
+        print("" + i + ":\n\tdefect_patch_detected: " + str(defect_patch_detected) + "\n\tdefect_patch_not_detected: " + str(defect_patch_not_detected))
+        type_patches = statistics[i]['type_patches']
+        for j in type_patches.keys():
+            detected = statistics[i]['type_patches'][j]['detected']
+            not_detected = statistics[i]['type_patches'][j]['not_detected']
+            print("\t" + j + ":\n\t\tdetected: " + str(detected) + "\n\t\tnot_detected: " + str(not_detected) + "\n\t\tpercentage: " + str(math.floor((detected/(detected + not_detected)) * 100)) + "%")
     return statistics
 
 
