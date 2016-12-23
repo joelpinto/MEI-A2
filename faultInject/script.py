@@ -6,14 +6,17 @@ import subprocess
 
 work_remote = False
 timeout_time = 2
+domain = input()
+username = input()
+password = input()
 
 if work_remote:
     print("Connecting...")
     sftp = pysftp.Connection(
-        "ucx.dei.uc.pt",
-        "guest",
+        domain,
+        username,
         None,
-        "ucXception$user")
+        password)
 
 
 def remote_command(command):
@@ -72,6 +75,7 @@ def run_tests(directories):
     print("generating statistics...")
     keys = list(directories.keys())
     keys.sort()
+    print_statistics = ""
     for i in keys:
         patches = directories[i]['patches']
         inputs = directories[i]['inputs']
@@ -98,8 +102,8 @@ def run_tests(directories):
                 try:
                     subprocess.run(cmd, timeout=timeout_time, shell=True)
                 except subprocess.TimeoutExpired:
-                    print("timeout in patch " + j + " after " + str(timeout_time) + "...")
-                #os.system(cmd)
+                    print("timeout in patch " + j + " after " + str(timeout_time) + " seconds...")
+                    os.system("pkill source")
                 if not filecmp.cmp("source/" + i + "/out.tmp", "source/" + i + "/outputs/" + outputs[count]):
                     out_tests.append([outputs[count], True])
                     detected += 1
@@ -111,20 +115,21 @@ def run_tests(directories):
             statistics[i]['type_patches'][patch_type]['detected'] += detected
             statistics[i]['type_patches'][patch_type]['not_detected'] += not_detected
             statistics[i]['patches'][j] = {'out_test': out_tests, 'defect': defect, 'detected': detected, 'not_detected': not_detected}
-            if defect:
+            if not defect:
                 defect_patch_detected += 1
             else:
                 defect_patch_not_detected += 1
             os.system("rm source/" + i + "/" + i)
         statistics[i]['defect_patch_detected'] = defect_patch_detected
         statistics[i]['defect_patch_not_detected'] = defect_patch_not_detected
-        print("number of patches: " + str(len(patches)))
-        print("" + i + ":\n\tdefect_patch_detected: " + str(defect_patch_detected) + "\n\tdefect_patch_not_detected: " + str(defect_patch_not_detected))
+        print_statistics += "number of patches: " + str(len(patches)) + "\n"
+        print_statistics += "" + i + ":\n\tdefect_patch_detected: " + str(defect_patch_detected) + "\n\tdefect_patch_not_detected: " + str(defect_patch_not_detected) + "\n\tpercentage: " + str(math.floor((defect_patch_detected/ (defect_patch_detected + defect_patch_not_detected)) * 100)) + "%\n"
         type_patches = statistics[i]['type_patches']
         for j in type_patches.keys():
             detected = statistics[i]['type_patches'][j]['detected']
             not_detected = statistics[i]['type_patches'][j]['not_detected']
-            print("\t" + j + ":\n\t\tdetected: " + str(detected) + "\n\t\tnot_detected: " + str(not_detected) + "\n\t\tpercentage: " + str(math.floor((detected/(detected + not_detected)) * 100)) + "%")
+            print_statistics += "\t" + j + ":\n\t\tdetected: " + str(detected) + "\n\t\tnot_detected: " + str(not_detected) + "\n\t\tpercentage: " + str(math.floor((detected/(detected + not_detected)) * 100)) + "%\n"
+    print(print_statistics)
     return statistics
 
 
