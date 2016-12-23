@@ -100,7 +100,7 @@ def run_tests(directories):
                 except subprocess.TimeoutExpired:
                     print("timeout in patch " + j + " after " + str(timeout_time) + "...")
                 #os.system(cmd)
-                if filecmp.cmp("source/" + i + "/out.tmp", "source/" + i + "/outputs/" + outputs[count]):
+                if not filecmp.cmp("source/" + i + "/out.tmp", "source/" + i + "/outputs/" + outputs[count]):
                     out_tests.append([outputs[count], True])
                     detected += 1
                 else:
