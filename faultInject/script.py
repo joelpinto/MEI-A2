@@ -2,9 +2,10 @@ import pysftp
 import os
 import filecmp
 import math
+import subprocess
 
 work_remote = False
-
+timeout_time = 2
 
 if work_remote:
     print("Connecting...")
@@ -92,9 +93,13 @@ def run_tests(directories):
             out_tests = []
             patch_type = j.split('_')
             patch_type = patch_type[1]
-            print("patch: " + j)
             for count in range(len(inputs)):
-                os.system("./source/" + i + "/" + i + " < source/" + i + "/inputs/" + inputs[count] + " > source/" + i + "/out.tmp")
+                cmd = "./source/" + i + "/" + i + " < source/" + i + "/inputs/" + inputs[count] + " > source/" + i + "/out.tmp"
+                try:
+                    subprocess.run(cmd, timeout=timeout_time, shell=True)
+                except subprocess.TimeoutExpired:
+                    print("timeout in patch " + j + " after " + str(timeout_time) + "...")
+                #os.system(cmd)
                 if filecmp.cmp("source/" + i + "/out.tmp", "source/" + i + "/outputs/" + outputs[count]):
                     out_tests.append([outputs[count], True])
                     detected += 1
@@ -151,6 +156,7 @@ def main():
                     remote_command("patch -R -d source-temp/" + directories[i]['_name'] + "/ < source-temp/" + directories[i]['_name'] + "/" + j)
         remote_command("tar -zcvf source-temp.tar.gz source-temp")
     if work_remote:
+        print("downloading...")
         sftp.get(
             remotepath="source-temp.tar.gz"
         )
