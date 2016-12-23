@@ -1,2 +1,2 @@
 # MEI-A2
-faultInjection study
+Probability of software failure detection
