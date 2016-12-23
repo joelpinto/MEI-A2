@@ -1,0 +1,18 @@
+
+
+Running Radix Sort on Unsorted List!
+
+	Sorting: 1's place [ 105 145 0 0 ]
+
+	Bucket: [ 0 2 2 2 2 2 4 4 4 4 ]
+	Sorting: 10's place [ 0 0 105 145 ]
+
+	Bucket: [ 0 3 3 3 3 4 4 4 4 4 ]
+	Sorting: 100's place [ 0 0 105 145 ]
+
+	Bucket: [ 0 2 4 4 4 4 4 4 4 4 ]
+[ 0 0 105 145 ]
+0 0
+5 202
+245 202
+5 102
