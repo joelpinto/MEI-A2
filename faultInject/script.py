@@ -69,7 +69,9 @@ def read_shipping(directories):
 def run_tests(directories):
     statistics = {}
     print("generating statistics...")
-    for i in directories.keys():
+    keys = list(directories.keys())
+    keys.sort()
+    for i in keys:
         patches = directories[i]['patches']
         inputs = directories[i]['inputs']
         outputs = directories[i]['outputs']
@@ -90,8 +92,8 @@ def run_tests(directories):
             out_tests = []
             patch_type = j.split('_')
             patch_type = patch_type[1]
+            print("patch: " + j)
             for count in range(len(inputs)):
-                #print("running " + j + "...")
                 os.system("./source/" + i + "/" + i + " < source/" + i + "/inputs/" + inputs[count] + " > source/" + i + "/out.tmp")
                 if filecmp.cmp("source/" + i + "/out.tmp", "source/" + i + "/outputs/" + outputs[count]):
                     out_tests.append([outputs[count], True])
