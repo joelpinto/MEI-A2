@@ -151,12 +151,14 @@ static void WriteFiles(HuffmanArchive* HA, int argc, FILE** f, char** codes, FIL
     unsigned char *bytes, byte = 0, bit;
     int bits_n = 0;
     for (i = 0;i < argc - 3;i++){
+        if (f[i] == NULL) 
             continue;
+
         fseek(f[i], 0, SEEK_END);
         file_len = ftell(f[i]);
         rewind(f[i]);
         bytes = calloc(file_len, sizeof (char));
-        fread(bytes, sizeof (char), file_len, f[i]);
+        fread(bytes, sizeof (char), j, f[i]);
         fclose(f[i]);
         HA->fh[incr].bytes_n = ObtainBytes_n(bytes, file_len, codes);
         fwrite(&HA->fh[incr], sizeof (struct _FileEntryHeader), 1, farchive);

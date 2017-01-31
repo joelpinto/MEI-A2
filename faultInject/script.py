@@ -3,7 +3,6 @@ import os
 import filecmp
 import math
 import subprocess
-import OSError
 
 work_remote = False
 timeout_time = 2
@@ -92,7 +91,10 @@ def generate_outputs(directories):
         outsuits = directories[i]['outputs']
         outsuits = list(outsuits.keys())
         outsuits.sort()
-        os.system("gcc -w source/" + i + "/" + i + ".c -lm -o source/" + i + "/" + i)
+        if i == "huffman":
+            os.system("make -C source/" + i + "/")
+        else:
+            os.system("gcc -w source/" + i + "/" + i + ".c -lm -o source/" + i + "/" + i)
         for j in range(len(insuits)):
             inputs = directories[i]['inputs'][insuits[j]]
             outputs = directories[i]['outputs'][outsuits[j]]
@@ -100,7 +102,12 @@ def generate_outputs(directories):
                 file_extension = inputs[z].split('.')
                 #print("generating '" + "source/" + i + "/outputs/" + outsuits[j] + "/output" + str(z + 1) + ".png")
                 if i == "huffman":
-                    cmd = cmd = "./source/" + i + "/" + i + " compress source/" + i + "/outputs/output" + str(z + 1) + "." + file_extension + "/" +  + " source/" + i + "/inputs/" + test_suite + "/" + test_case
+                    if (z + 1) < 10:
+                        cmd = "./source/" + i + "/" + i + " compress source/" + i + "/outputs/" + outsuits[j] + "/output0" + str(z + 1) + ".huff" + " source/" + i + "/inputs/" + insuits[j] + "/" + inputs[z]
+                    else:
+                        cmd = "./source/" + i + "/" + i + " compress source/" + i + "/outputs/" + outsuits[
+                            j] + "/output" + str(z + 1) + ".huff" + " source/" + i + "/inputs/" + insuits[
+                                  j] + "/" + inputs[z]
                 else:
                     cmd = "./source/" + i + "/" + i + " < source/" + i + "/inputs/" + insuits[j] + "/" + inputs[z] + \
                           " > source/" + i + "/outputs/" + outsuits[j] + "/output" + str(z + 1) + "." + file_extension[1]
@@ -110,7 +117,7 @@ def generate_outputs(directories):
                     print("timeout in input" + str(z) + " after " + str(timeout_time) + " seconds...")
                     os.system("pkill source")
         os.system("rm source/" + i + "/" + i)
-        os.system("rm soutce/" + i + "/*.o")
+        os.system("rm source/" + i + "/*.o")
 
 
 def run_tests(directories):
@@ -135,8 +142,11 @@ def run_tests(directories):
             patch_type = patch_type[1]
             insuits = list(inputs.keys())
             insuits.sort()
-            count = 1
+            outsuits = list(outputs.keys())
+            outsuits.sort()
+            count = 0
             for test_suite in insuits:
+                count2 = 0
                 for test_case in inputs[test_suite]:
                     defect = 0
                     if i == "huffman":
@@ -145,15 +155,16 @@ def run_tests(directories):
                             subprocess.run(cmd, timeout=timeout_time, shell=True)
                         except subprocess.TimeoutExpired:
                             print("timeout in patch " + j + " after " + str(timeout_time) + " seconds...")
-                            os.system("pkill " + i)
+                            os.system\
+                                ("pkill " + i)
                             defect = -1
                         try:
                             if not filecmp.cmp("source/" + i + "/out.huff",
-                                               "source/" + i + "/inputs/" + test_suite + "/" + test_case):
+                                               "source/" + i + "/outputs/" + outsuits[count] + "/" + outputs[outsuits[count]][count2]):
                                 defect = 1
-                        except OSError.FileNotFoundError:
+                        except FileNotFoundError:
                             defect = 1
-                        os.system("rm " + test_case)
+                            os.system("rm source/" + i + "/out.huff")
                     else:
                         cmd = "./source/" + i + "/" + i + " < source/" + i + "/inputs/test_suite" + test_case + " > source/" + i + "/out.tmp"
                         try:
@@ -165,10 +176,12 @@ def run_tests(directories):
                         if not filecmp.cmp("source/" + i + "/out.tmp",
                                            "source/" + i + "/outputs/" + test_case):
                             defect = 1
+                        os.system("rm source/" + i + "/out.tmp")
                     out_tsv += '' + i + '\t' + j + '\t' + test_suite + '\t' + test_case + '\t' + str(defect) + '\n'
-                    os.system("rm source/" + i + "/out.tmp")
-                count += count + 1
+                    count2 += 1
+                count += 1
             os.system("rm source/" + i + "/" + i)
+            os.system("rm soutce/" + i + "/*.o")
     f = open('out.tsv', 'w')
     f.write(out_tsv)
     f.close()
@@ -213,9 +226,9 @@ def main():
         read_shipping(directories)
         directories = crawl_directory()
     else:
-        generate_outputs(directories)
-        directories = crawl_directory()
-        #statistics = run_tests(directories)
+        #generate_outputs(directories)
+        #directories = crawl_directory()
+        statistics = run_tests(directories)
 
 if __name__ == "__main__":
     main()
