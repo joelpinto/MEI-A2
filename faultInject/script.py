@@ -3,6 +3,7 @@ import os
 import filecmp
 import math
 import subprocess
+import OSError
 
 work_remote = False
 timeout_time = 2
@@ -36,10 +37,20 @@ def crawl_directory():
     program_dirs = os.listdir("source/")
     for i in program_dirs:
         _path = 'source/' + i + "/"
-        inputs = os.listdir("source/" + i + "/inputs/")
-        inputs.sort()
-        outputs = os.listdir("source/" + i + "/outputs/")
-        outputs.sort()
+        insuits = os.listdir("source/" + i + "/inputs/")
+        insuits.sort()
+        inputs = {}
+        for j in insuits:
+            inputslist = os.listdir("source/" + i + "/inputs/" + j + "/")
+            inputslist.sort()
+            inputs[j] = inputslist
+        outsuits = os.listdir("source/" + i + "/outputs/")
+        outsuits.sort()
+        outputs = {}
+        for j in outsuits:
+            outputslist = os.listdir("source/" + i + "/outputs/" + j + "/")
+            outputslist.sort()
+            outputs[j] = outputslist
         patches = os.listdir("source/" + i + "/patches/")
         patches.sort()
         ret[i] = {'_name': i, '_path': _path, 'inputs': inputs, 'outputs': outputs, 'patches': patches}
@@ -70,66 +81,97 @@ def read_shipping(directories):
     os.system("rm -r source-temp.tar.gz")
 
 
+def generate_outputs(directories):
+    print("generating outputs...")
+    keys = list(directories.keys())
+    keys.sort()
+    for i in keys:
+        insuits = directories[i]['inputs']
+        insuits = list(insuits.keys())
+        insuits.sort()
+        outsuits = directories[i]['outputs']
+        outsuits = list(outsuits.keys())
+        outsuits.sort()
+        os.system("gcc -w source/" + i + "/" + i + ".c -lm -o source/" + i + "/" + i)
+        for j in range(len(insuits)):
+            inputs = directories[i]['inputs'][insuits[j]]
+            outputs = directories[i]['outputs'][outsuits[j]]
+            for z in range(len(inputs)):
+                file_extension = inputs[z].split('.')
+                #print("generating '" + "source/" + i + "/outputs/" + outsuits[j] + "/output" + str(z + 1) + ".png")
+                if i == "huffman":
+                    cmd = cmd = "./source/" + i + "/" + i + " compress source/" + i + "/outputs/output" + str(z + 1) + "." + file_extension + "/" +  + " source/" + i + "/inputs/" + test_suite + "/" + test_case
+                else:
+                    cmd = "./source/" + i + "/" + i + " < source/" + i + "/inputs/" + insuits[j] + "/" + inputs[z] + \
+                          " > source/" + i + "/outputs/" + outsuits[j] + "/output" + str(z + 1) + "." + file_extension[1]
+                try:
+                    subprocess.run(cmd, timeout=timeout_time, shell=True)
+                except subprocess.TimeoutExpired:
+                    print("timeout in input" + str(z) + " after " + str(timeout_time) + " seconds...")
+                    os.system("pkill source")
+        os.system("rm source/" + i + "/" + i)
+        os.system("rm soutce/" + i + "/*.o")
+
+
 def run_tests(directories):
     statistics = {}
     print("generating statistics...")
     keys = list(directories.keys())
     keys.sort()
     print_statistics = ""
+    out_tsv = 'code_name\tpatch\ttest_suite\ttest_case\tdefect\n'
     for i in keys:
         patches = directories[i]['patches']
         inputs = directories[i]['inputs']
         outputs = directories[i]['outputs']
-        statistics[i] = {'_name': i, 'patches': {}, 'defect_patch_detected': 0, 'defect_patch_not_detected': 0}
-        defect_patch_detected = 0
-        defect_patch_not_detected = 0
         type_patches = {}
         for j in patches:
-            patch_type = j.split('_')
-            patch_type = patch_type[1]
-            type_patches[patch_type] = {'not_detected': 0, 'detected': 0}
-        statistics[i]['type_patches'] = type_patches
-        for j in patches:
-            defect = False
-            os.system("gcc -w source/" + i + "/patches/" + j + " -o source/" + i + "/" + i)
-            detected = 0
-            not_detected = 0
-            out_tests = []
-            patch_type = j.split('_')
-            patch_type = patch_type[1]
-            for count in range(len(inputs)):
-                cmd = "./source/" + i + "/" + i + " < source/" + i + "/inputs/" + inputs[count] + " > source/" + i + "/out.tmp"
-                try:
-                    subprocess.run(cmd, timeout=timeout_time, shell=True)
-                except subprocess.TimeoutExpired:
-                    print("timeout in patch " + j + " after " + str(timeout_time) + " seconds...")
-                    os.system("pkill source")
-                if not filecmp.cmp("source/" + i + "/out.tmp", "source/" + i + "/outputs/" + outputs[count]):
-                    out_tests.append([outputs[count], True])
-                    detected += 1
-                else:
-                    out_tests.append([outputs[count], False])
-                    not_detected += 1
-                    defect = True
-                os.system("rm source/" + i + "/out.tmp")
-            statistics[i]['type_patches'][patch_type]['detected'] += detected
-            statistics[i]['type_patches'][patch_type]['not_detected'] += not_detected
-            statistics[i]['patches'][j] = {'out_test': out_tests, 'defect': defect, 'detected': detected, 'not_detected': not_detected}
-            if not defect:
-                defect_patch_detected += 1
+            if i == "huffman":
+                os.system("cp source/" + i + "/patches/" + j + " source/" + i + "/huffman.c")
+                os.system("make -C source/" + i + "/")
             else:
-                defect_patch_not_detected += 1
+                os.system("gcc source/" + i + "/patches/" + j + " -o source/" + i + "/" + i)
+            patch_type = j.split('_')
+            patch_type = patch_type[1]
+            insuits = list(inputs.keys())
+            insuits.sort()
+            count = 1
+            for test_suite in insuits:
+                for test_case in inputs[test_suite]:
+                    defect = 0
+                    if i == "huffman":
+                        cmd = "./source/" + i + "/" + i + " compress source/" + i + "/out.huff source/" + i + "/inputs/" + test_suite + "/" + test_case
+                        try:
+                            subprocess.run(cmd, timeout=timeout_time, shell=True)
+                        except subprocess.TimeoutExpired:
+                            print("timeout in patch " + j + " after " + str(timeout_time) + " seconds...")
+                            os.system("pkill " + i)
+                            defect = -1
+                        try:
+                            if not filecmp.cmp("source/" + i + "/out.huff",
+                                               "source/" + i + "/inputs/" + test_suite + "/" + test_case):
+                                defect = 1
+                        except OSError.FileNotFoundError:
+                            defect = 1
+                        os.system("rm " + test_case)
+                    else:
+                        cmd = "./source/" + i + "/" + i + " < source/" + i + "/inputs/test_suite" + test_case + " > source/" + i + "/out.tmp"
+                        try:
+                            subprocess.run(cmd, timeout=timeout_time, shell=True)
+                        except subprocess.TimeoutExpired:
+                            print("timeout in patch " + j + " after " + str(timeout_time) + " seconds...")
+                            os.system("pkill " + i)
+                            defect = -1
+                        if not filecmp.cmp("source/" + i + "/out.tmp",
+                                           "source/" + i + "/outputs/" + test_case):
+                            defect = 1
+                    out_tsv += '' + i + '\t' + j + '\t' + test_suite + '\t' + test_case + '\t' + str(defect) + '\n'
+                    os.system("rm source/" + i + "/out.tmp")
+                count += count + 1
             os.system("rm source/" + i + "/" + i)
-        statistics[i]['defect_patch_detected'] = defect_patch_detected
-        statistics[i]['defect_patch_not_detected'] = defect_patch_not_detected
-        print_statistics += "number of patches: " + str(len(patches)) + "\n"
-        print_statistics += "" + i + ":\n\tdefect_patch_detected: " + str(defect_patch_detected) + "\n\tdefect_patch_not_detected: " + str(defect_patch_not_detected) + "\n\tpercentage: " + str(math.floor((defect_patch_detected/ (defect_patch_detected + defect_patch_not_detected)) * 100)) + "%\n"
-        type_patches = statistics[i]['type_patches']
-        for j in type_patches.keys():
-            detected = statistics[i]['type_patches'][j]['detected']
-            not_detected = statistics[i]['type_patches'][j]['not_detected']
-            print_statistics += "\t" + j + ":\n\t\tdetected: " + str(detected) + "\n\t\tnot_detected: " + str(not_detected) + "\n\t\tpercentage: " + str(math.floor((detected/(detected + not_detected)) * 100)) + "%\n"
-    print(print_statistics)
+    f = open('out.tsv', 'w')
+    f.write(out_tsv)
+    f.close()
     return statistics
 
 
@@ -171,7 +213,9 @@ def main():
         read_shipping(directories)
         directories = crawl_directory()
     else:
-        statistics = run_tests(directories)
+        generate_outputs(directories)
+        directories = crawl_directory()
+        #statistics = run_tests(directories)
 
 if __name__ == "__main__":
     main()
