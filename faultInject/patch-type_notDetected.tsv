@@ -1,0 +1,19 @@
+huffman
+Tipo de Patch	Percentagem de nao detetar
+MIA	7.27
+MIEB	1.82
+MIFS	9.09
+MLAC	0.61
+MLOC	1.21
+MLPA	69.09
+WPFV	10.91
+total	100.00
+radix
+Tipo de Patch	Percentagem de nao detetar
+MIA	0.00
+MIEB	9.09
+MIFS	18.18
+MLOC	54.55
+MLPA	0.00
+WPFV	18.18
+total	100.00

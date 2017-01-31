@@ -5,7 +5,7 @@ import math
 import subprocess
 
 work_remote = False
-timeout_time = 2
+timeout_time = 1
 domain = input()
 username = input()
 password = input()
@@ -117,7 +117,8 @@ def generate_outputs(directories):
                     print("timeout in input" + str(z) + " after " + str(timeout_time) + " seconds...")
                     os.system("pkill source")
         os.system("rm source/" + i + "/" + i)
-        os.system("rm source/" + i + "/*.o")
+        if i == "huffman":
+            os.system("rm source/" + i + "/*.o")
 
 
 def run_tests(directories):
@@ -148,7 +149,7 @@ def run_tests(directories):
             for test_suite in insuits:
                 count2 = 0
                 for test_case in inputs[test_suite]:
-                    defect = 0
+                    defect = -1
                     if i == "huffman":
                         cmd = "./source/" + i + "/" + i + " compress source/" + i + "/out.huff source/" + i + "/inputs/" + test_suite + "/" + test_case
                         try:
@@ -162,11 +163,13 @@ def run_tests(directories):
                             if not filecmp.cmp("source/" + i + "/out.huff",
                                                "source/" + i + "/outputs/" + outsuits[count] + "/" + outputs[outsuits[count]][count2]):
                                 defect = 1
+                            else:
+                                defect = 0
                         except FileNotFoundError:
                             defect = 1
                             os.system("rm source/" + i + "/out.huff")
                     else:
-                        cmd = "./source/" + i + "/" + i + " < source/" + i + "/inputs/test_suite" + test_case + " > source/" + i + "/out.tmp"
+                        cmd = "./source/" + i + "/" + i + " < source/" + i + "/inputs/" + test_suite + "/" + test_case + " > source/" + i + "/out.tmp"
                         try:
                             subprocess.run(cmd, timeout=timeout_time, shell=True)
                         except subprocess.TimeoutExpired:
@@ -174,15 +177,18 @@ def run_tests(directories):
                             os.system("pkill " + i)
                             defect = -1
                         if not filecmp.cmp("source/" + i + "/out.tmp",
-                                           "source/" + i + "/outputs/" + test_case):
+                                           "source/" + i + "/outputs/" + outsuits[count] + "/" + outputs[outsuits[count]][count2]):
                             defect = 1
+                        else:
+                            defect = 0
                         os.system("rm source/" + i + "/out.tmp")
                     out_tsv += '' + i + '\t' + j + '\t' + test_suite + '\t' + test_case + '\t' + str(defect) + '\n'
                     count2 += 1
                 count += 1
             os.system("rm source/" + i + "/" + i)
-            os.system("rm soutce/" + i + "/*.o")
-    f = open('out.tsv', 'w')
+            if i == "huffman":
+                os.system("rm soutce/" + i + "/*.o")
+    f = open('out.tsv', 'a')
     f.write(out_tsv)
     f.close()
     return statistics
